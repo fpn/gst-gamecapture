@@ -4,9 +4,11 @@
 require 'optparse'
 require 'open3'
 require 'rbconfig'
+require 'net/http'
+
 include Open3
 
-JENKINS_HOST = 'usw1-jenkins-002.blab.im'
+JENKINS_HOST = 'jenkins-windows.bebo-dev.com'
 JENKINS_PROJECT = 'gst-gamecapture'
 
 
@@ -15,8 +17,6 @@ JENKINS_TOKEN = 'uBC3kFJF'
 
 IS_WINDOWS = (RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
 
-curl = IS_WINDOWS ? "./curl.exe -L --write-out %{http_code}" : "curl -s --write-out %{http_code}"
-curl_test = IS_WINDOWS ? "./curl.exe -L --write-out %{http_code} -so nul" : "curl --write-out %{http_code} -so /dev/null"
 
 def bump_version(t)
     elems = t.split(".").map{|x| x.to_i}
@@ -91,8 +91,8 @@ end
 unless options[:dirty]
     require_clean_work_tree
 end
-puts "#{curl_test} #{JENKINS_URL}"
-test_response=%x(#{curl_test} #{JENKINS_URL})
+test_response_r = Net::HTTP.get_response(URI(JENKINS_URL))
+test_response = test_response_r.code
 # check for 200, if not, then exit
 unless test_response == '200'
 #if test_response != '200' || test_response != '201'
@@ -127,7 +127,8 @@ puts "#{jenkins_build_url}"
 
 puts "jenkins url: #{jenkins_build_url}" if options[:verbose]
 unless options[:dryrun]
-    build_response=%x(#{curl} "#{jenkins_build_url}")
+    response = Net::HTTP.get_response(URI(jenkins_build_url))
+    build_response = response.code
     if build_response == '200' || build_response == '201'
         puts "building #{new_tag}"
     else
